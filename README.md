@@ -1,0 +1,138 @@
+<p align="center">
+  <img src=".github/assets/logo.png" width="128" alt="MarkdownEditor Logo">
+</p>
+
+<h1 align="center">MarkdownEditor</h1>
+
+<p align="center">
+  A native macOS Markdown editor with real-time preview, LaTeX, Mermaid diagrams, and syntax highlighting.
+  <br>
+  原生 macOS Markdown 编辑器：实时预览、LaTeX 公式、Mermaid 图表与语法高亮。
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-blue" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-6.0-orange" alt="Swift 6.0">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
+</p>
+
+---
+
+## Features / 功能特性
+
+### Core / 核心
+- **Split-pane editing / 分栏编辑**: Left editor / right live preview with real-time rendering
+- **GFM support / GFM 支持**: Tables, task lists, strikethrough, footnotes, autolinks
+- **LaTeX formulas / LaTeX 公式**: Inline `$...$` and block `$$...$$` via KaTeX
+- **Mermaid diagrams / Mermaid 图表**: Flowchart, sequence, gantt, class, state, pie, journey, ER, quadrant, timeline
+- **Syntax highlighting / 语法高亮**: 10+ languages in editor (Highlightr) and preview (highlight.js)
+
+### Editor / 编辑器
+- Keyboard shortcuts: bold / italic / code / link / heading / table / task / quote / strikethrough / formula（完整快捷键体系）
+- Line numbers, code folding, find & replace (regex)（行号、代码折叠、正则查找替换）
+- Auto-indent, bracket pairing, focus mode, status bar（自动缩进、括号配对、聚焦模式、状态栏）
+
+### Files & Export / 文件与导出
+- Recent files, autosave, external-change detection, drag & drop（最近文件、自动保存、外部修改检测、拖拽打开）
+- Export HTML (offline single-file), PDF, plain Markdown（导出 HTML/PDF/纯 Markdown）
+- Local image drag-in（本地图片拖拽插入）
+
+### Customization / 个性化
+- Themes: Light / Dark / System, synchronized editor + preview（浅色/深色/跟随系统，双栏同步）
+- Font settings, shortcut remapping, Mermaid theme, debounce tuning（字体配置、快捷键自定义、Mermaid 主题、渲染延迟调节）
+
+---
+
+## Requirements / 环境要求
+
+- macOS 14.0+
+- Xcode 15+ (to build from source / 源码构建)
+
+---
+
+## Installation / 安装
+
+### From DMG / DMG 安装（推荐）
+
+Download the latest release, mount the DMG, and drag `MarkdownEditor.app` to `/Applications`.
+
+下载最新发行版，挂载 DMG，将 `MarkdownEditor.app` 拖入 `/Applications`。
+
+> Note: Unsigned builds require right-click → Open on first launch.
+> 注意：未签名版本首次打开需右键 → 打开。
+
+### From Source / 源码构建
+
+```bash
+git clone https://github.com/sunnyzl/MarkdownEditor.git
+cd MarkdownEditor
+brew install xcodegen
+xcodegen generate
+open MarkdownEditor.xcodeproj
+```
+
+---
+
+## Usage / 使用
+
+- Type Markdown on the left, see rendered output on the right（左侧编辑，右侧实时预览）
+- `⌘B` bold / `⌘I` italic / `⌘K` link / `⌘1`~`⌘6` headings（粗体/斜体/链接/标题）
+- `⌘\` toggle pane modes（分栏模式切换）
+- `⌘,` settings（设置面板）
+- `⌘F` find & replace, regex supported（查找替换，支持正则）
+
+---
+
+## Tech Stack / 技术栈
+
+| Component / 组件 | Choice / 选型 |
+|------------------|---------------|
+| Language / 语言 | Swift 6 (strict concurrency) |
+| UI | SwiftUI + AppKit (NSTextView) |
+| Preview / 预览 | WKWebView |
+| Markdown parsing / 解析 | Down-gfm fork |
+| LaTeX | KaTeX v0.16 |
+| Diagrams / 图表 | Mermaid v11 |
+| Highlighting / 高亮 | Highlightr + highlight.js |
+| Project generation / 工程生成 | xcodegen |
+
+---
+
+## Project Structure / 项目结构
+
+```
+MarkdownEditor/
+├── App/            # App entry, window management / 应用入口、窗口管理
+├── Editor/         # NSTextView editor, highlighting, folding / 编辑器、高亮、折叠
+├── Preview/        # WKWebView preview, scroll sync / 预览、滚动同步
+├── RenderPipeline/ # Down → GFM → Mermaid → inject → render / 渲染管线
+├── File/           # Document, autosave, export / 文档、自动保存、导出
+├── Settings/       # Theme, fonts, preview settings / 主题、字体、预览设置
+├── Shortcuts/      # Command system / 命令与快捷键体系
+└── Window/         # Split view, toolbar, status bar / 分栏、工具栏、状态栏
+WebAssets/          # preview.html, KaTeX/Mermaid/highlight.js assets
+```
+
+---
+
+## Testing / 测试
+
+```bash
+xcodebuild test -scheme MarkdownEditor -destination 'platform=macOS'
+```
+
+---
+
+## License / 许可证
+
+[MIT](LICENSE)
+
+---
+
+## Acknowledgements / 致谢
+
+- [Down](https://github.com/stackotter/Down-gfm) - Markdown parsing
+- [KaTeX](https://github.com/KaTeX/KaTeX) - LaTeX rendering
+- [Mermaid](https://github.com/mermaid-js/mermaid) - Diagram rendering
+- [highlight.js](https://github.com/highlightjs/highlight.js) - Code highlighting
+- [Highlightr](https://github.com/raspu/Highlightr) - Editor-side highlighting

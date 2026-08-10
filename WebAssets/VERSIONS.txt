@@ -1,0 +1,8 @@
+# WebAssets 版本清单 / WebAssets version manifest
+# 由 download-web-assets.sh 生成，请勿手改 / Generated, do not edit by hand.
+# CDN: jsDelivr (npm/gh mirror, version-locked)
+mermaid = v11.4.0   # S-001/002/003 共享
+katex   = v0.16.11     # S-002/003 共享
+highlight.js = v11.10.0  # S-002 共享
+morphdom = v2.7.1  # S-003 选项 C
+generated = 2026-08-06T03:37:20Z

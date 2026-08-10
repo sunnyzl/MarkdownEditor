@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markdown Preview</title>
+<link rel="stylesheet" href="katex/katex.min.css">
+<!-- head 内 katex.min.css 之后追加（S-012，AD-8 主题双轨：与 MessageBridge.setTheme 的 body.dark 联动） -->
+<link rel="stylesheet" href="highlight/github.min.css" id="hljs-theme-light">
+<link rel="stylesheet" href="highlight/github-dark.min.css" id="hljs-theme-dark" disabled>
+<style>
+  /* AD-10：CSS 变量主题（--bg/--fg/--code-bg），S-015 ThemeService 双轨下发的预览侧载体 */
+  :root { --bg: #ffffff; --fg: #24292e; --muted: #6a737d; --code-bg: #f6f8fa; --border: #d0d7de; --link: #0969da; --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --code-font-family: ui-monospace, Menlo, monospace; }
+  body.dark { --bg: #0d1117; --fg: #c9d1d9; --muted: #8b949e; --code-bg: #161b22; --border: #30363d; --link: #58a6ff; }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font-family);
+    margin: 0; padding: 16px; line-height: 1.6;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  #content { max-width: 780px; margin: 0 auto; word-wrap: break-word; }
+  h1, h2, h3 { line-height: 1.25; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 3px;
+    font-family: var(--code-font-family); font-size: 90%;
+  }
+  pre { background: var(--code-bg); padding: 12px; border-radius: 6px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  pre.mermaid { background: transparent; border: 1px solid var(--border); text-align: center; }
+  /* FR-047：mermaid 语法错误 → 样式化错误块（mermaid v11 错误渲染为 SVG
+   * 内含 .error-icon/.error-text，文本 "Syntax error in text"；此处以 :has() 命中：
+   * 红边框 + 等宽错误文本 + 图标着色；macOS 14 WKWebView 内核完整支持 :has()） */
+  pre.mermaid:has(.error-text) { border: 1px solid #d73a49; background: var(--code-bg); }
+  pre.mermaid:has(.error-text) svg { max-width: 100%; height: auto; }
+  pre.mermaid:has(.error-text) .error-text {
+    font-family: var(--code-font-family);
+    font-size: 13px;
+    fill: #d73a49;
+    stroke: #d73a49;
+  }
+  pre.mermaid:has(.error-text) .error-icon { fill: #d73a49; }
+  blockquote { border-left: 4px solid var(--border); margin: 0; padding-left: 16px; color: var(--muted); }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid var(--border); padding: 6px 12px; }
+  a { color: var(--link); }
+  .katex-display { overflow-x: auto; overflow-y: hidden; }
+  /* S-026 FR-047：KaTeX 错误样式——katex.min.css 无 .katex-error 规则（grep 0 处实证），
+   * throwOnError=false 渲染错误公式为 .katex-error span（原文可见 + 红色标记）。
+   * ⚠️ MINOR #9：KaTeX 内联 errorColor（#cc0000）为普通声明，author-important 的
+   * .katex-error 规则优先级更高 → 实际渲染色 #d73a49（外部规则生效；两规则同红色系无冲突） */
+  .katex-error { color: #d73a49 !important; }
+  /* S-025 FR-025：脚注区块样式（GFM 标准形态 <section class="footnotes"><ol>） */
+  sup.footnote-ref { font-size: 0.8em; }
+  .footnotes {
+    margin-top: 24px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 0.9em; color: var(--muted);
+  }
+  .footnotes ol { margin: 0; padding-left: 20px; }
+  /* 错误占位（NFR-012：非空白降级，POC .err 模式） */
+  .render-error { padding: 12px; border: 1px solid #d73a49; border-radius: 6px; color: #d73a49; font-size: 13px; }
+  /* S-012：hljs 块级覆盖——github 主题 pre code.hljs padding:1em + .hljs background 特异性更高，
+     覆盖页面 pre code 规则 → 内边距翻倍 + --code-bg 失效；本规则特异性相等且位置在后 → 胜出 */
+  pre code.hljs { padding: 0; background: transparent; }
+</style>
+</head>
+<body>
+<!-- AD-6：更新目标元素固定为 #content；morphdom 注入与滚动保留在此容器上 -->
+<div id="content"></div>
+
+<!-- 三件套 UMD 相对路径（AD-5 loadFileURL，POC S-002 离线验证）；hljs 资源已引入（S-012，批次 4） -->
+<!-- body 尾追加（三件套 script 之前） -->
+<script src="highlight/highlight.min.js"></script>
+<script src="mermaid/mermaid.min.js"></script>
+<script src="katex/katex.min.js"></script>
+<script src="katex/auto-render.min.js"></script>
+<script src="morphdom/morphdom.min.js"></script>
+<script src="MermaidDomTransformer.js"></script>
+<script src="MessageBridge.js"></script>
+</body>
+</html>

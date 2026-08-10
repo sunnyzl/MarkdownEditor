@@ -1,0 +1,194 @@
+# project.yml — Xcode workspace 单一事实源
+# 用 xcodegen 生成 MarkdownEditor.xcodeproj
+# Single source of truth for the Xcode project; run `xcodegen generate` after edits.
+
+name: MarkdownEditor
+options:
+  bundleIdPrefix: com.markdowneditor
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+# 全局构建设置 / Global build settings
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    # Swift 6 严格并发：minimal（POC 已验证模式；@MainActor WKWebView 模式贯彻于 MVP 代码）
+    # Strict concurrency: minimal (POC-verified pattern; @MainActor WKWebView enforced in MVP code)
+    SWIFT_STRICT_CONCURRENCY: minimal
+    GENERATE_INFOPLIST_FILE: YES
+    # MVP 个人使用，关闭沙箱便于读 bundle 外文件 / Disable sandbox (personal use, TECH_STACK decision)
+    ENABLE_APP_SANDBOX: NO
+    DEVELOPMENT_TEAM: ""
+
+# SPM 依赖 / Swift Package Manager dependencies
+# Down → Down-gfm fork（设计 §5.4 用户已确认；stackotter fork 0.12.0，product 名仍为 Down）
+packages:
+  DownGfm:
+    url: https://github.com/stackotter/Down-gfm
+    from: 0.12.0
+  Highlightr:
+    url: https://github.com/raspu/Highlightr.git
+    from: 2.2.1
+
+targets:
+  # ══ Epic-1 MVP 主 target ══
+  MarkdownEditor:
+    type: application
+    platform: macOS
+    sources:
+      - path: MarkdownEditor
+      # Web 资源共享根 WebAssets/（POC 已验证资源直接复用；preview.html/MessageBridge.js 等新增于此）
+      - path: WebAssets
+        type: folder          # 蓝色 Folder Reference（保持目录结构）/ Blue folder reference
+        buildPhase: resources # 放入 Resources 构建阶段 / add to Resources build phase
+    dependencies:
+      - package: DownGfm
+        product: Down
+      - package: Highlightr          # S-023 追加：编辑器内语法高亮（POC-S-005 已 GO）
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.app
+        PRODUCT_NAME: MarkdownEditor
+
+  # ══ 单元测试 target（NFR-032）══
+  MarkdownEditorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MarkdownEditorTests
+    dependencies:
+      - target: MarkdownEditor
+      - package: DownGfm
+        product: Down
+      - package: Highlightr          # S-023 追加：测试 target 编译 SyntaxHighlighterTests 需要
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.tests
+        PRODUCT_NAME: MarkdownEditorTests
+
+  # ══ UI 测试 target（批次3 方案 A XCUITest，design §批次2）══
+  MarkdownEditorUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: MarkdownEditorUITests
+    dependencies:
+      - target: MarkdownEditor      # XCUITest host = MarkdownEditor.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.uitests
+        PRODUCT_NAME: MarkdownEditorUITests
+
+  # ── POC targets（保留，便于回归）──
+  POC-S-001-MermaidRender:
+    type: application
+    platform: macOS
+    sources:
+      - path: POC-S-001-MermaidRender
+      - path: WebAssets
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.poc-s001
+        PRODUCT_NAME: POC-S-001-MermaidRender
+
+  POC-S-002-BundleLoad:
+    type: application
+    platform: macOS
+    sources:
+      - path: POC-S-002-BundleLoad
+      - path: WebAssets
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.poc-s002
+        PRODUCT_NAME: POC-S-002-BundleLoad
+
+  POC-S-003-PreviewUpdate:
+    type: application
+    platform: macOS
+    sources:
+      - path: POC-S-003-PreviewUpdate
+      - path: WebAssets
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.poc-s003
+        PRODUCT_NAME: POC-S-003-PreviewUpdate
+
+  # S-004 依赖统一切到 DownGfm（product 名仍为 Down，避免同名模块冲突）
+  POC-S-004-DownSourceMap:
+    type: application
+    platform: macOS
+    sources:
+      - path: POC-S-004-DownSourceMap
+    dependencies:
+      - package: DownGfm
+        product: Down
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.poc-s004
+        PRODUCT_NAME: POC-S-004-DownSourceMap
+
+  POC-S-005-Highlightr:
+    type: application
+    platform: macOS
+    sources:
+      - path: POC-S-005-Highlightr
+    dependencies:
+      - package: Highlightr
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.poc-s005
+        PRODUCT_NAME: POC-S-005-Highlightr
+
+schemes:
+  MarkdownEditor:
+    build:
+      targets:
+        MarkdownEditor: all
+        MarkdownEditorTests: [test]
+        MarkdownEditorUITests: [test]   # 批次3：XCUITest target（方案 A，build 参与）
+    test:
+      targets:
+        - MarkdownEditorTests           # 单元测试默认跑（CI 友好）；UITests 需交互式 GUI 会话，独立 scheme 触发
+  MarkdownEditorUITests:
+    build:
+      targets:
+        MarkdownEditor: all
+        MarkdownEditorUITests: [test]
+    test:
+      targets:
+        - MarkdownEditorUITests         # 独立 scheme：xcodebuild test -scheme MarkdownEditorUITests（需 GUI 会话）
+      config: Debug
+    run:
+      config: Debug
+  POC-S-001-MermaidRender:
+    build:
+      targets:
+        POC-S-001-MermaidRender: all
+    run:
+      config: Debug
+  POC-S-002-BundleLoad:
+    build:
+      targets:
+        POC-S-002-BundleLoad: all
+  POC-S-003-PreviewUpdate:
+    build:
+      targets:
+        POC-S-003-PreviewUpdate: all
+  POC-S-004-DownSourceMap:
+    build:
+      targets:
+        POC-S-004-DownSourceMap: all
+  POC-S-005-Highlightr:
+    build:
+      targets:
+        POC-S-005-Highlightr: all

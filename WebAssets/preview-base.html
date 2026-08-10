@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!--
+  preview-base.html — 共享预览脚手架 / Shared preview scaffold
+  - S-002: loadFileURL 加载此文件，验证 bundle 资源（mermaid/katex/hljs）离线加载（R-M2）
+  - S-003: 各 panel 复用此结构，自行注入 #content 内容与渲染策略
+  资源用相对路径引用，由 loadFileURL(allowingReadAccessTo: WebAssets) 授权读取。
+-->
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <!-- KaTeX CSS（含字体相对路径引用）/ KaTeX CSS (references fonts relatively) -->
+  <link rel="stylesheet" href="katex/katex.min.css">
+  <!-- highlight.js 主题 CSS / highlight.js theme CSS -->
+  <link rel="stylesheet" href="highlight/github.min.css">
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #1f2328; --code-bg: #f6f8fa;
+      /* ⚠️ 收尾批次：字体栈变量化（与 preview.html :root 同默认值——base 字体栈统一；
+         独立页面须自带定义，CSS 变量不跨文件级联） */
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --code-font-family: ui-monospace, Menlo, monospace;
+    }
+    body {
+      font-family: var(--font-family);
+      margin: 0; padding: 16px;
+      background: var(--bg); color: var(--fg);
+      line-height: 1.6;
+    }
+    #content { max-width: 760px; margin: 0 auto; }
+    pre { background: var(--code-bg); padding: 12px; border-radius: 6px; overflow-x: auto; }
+    .probe { font-family: var(--code-font-family); font-size: 12px; background: #f0f0f0; padding: 8px; margin-top: 16px; white-space: pre-wrap; border-radius: 4px; }
+    .ok { color: #1a7f37; } .err { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <h2>Preview Base — Bundle Load Probe</h2>
+    <p>此页面由 preview-base.html 加载。若下方探针全部 OK，则 bundle 资源离线加载成功（R-M2 通过）。</p>
+    <p>Page loaded from preview-base.html. If probes below are all OK, bundle offline loading works (R-M2 pass).</p>
+
+    <!-- KaTeX 渲染样本 / KaTeX render sample -->
+    <p>行内公式 inline: <span class="katex-test">$E=mc^2$</span></p>
+
+    <!-- highlight.js 渲染样本 / highlight.js render sample -->
+    <pre><code class="language-swift">func hello() -&gt; String { return "hi" }</code></pre>
+
+    <!-- Mermaid 图（以标准 <pre class="mermaid"> 形式，供初始化检测）/ Mermaid diagram -->
+    <pre class="mermaid">
+graph TD
+    A[Bundle] --> B[WKWebView]
+    B --> C{Offline?}
+    C -->|Yes| D[✅ R-M2 Pass]
+    C -->|No| E[❌ Fail]
+    </pre>
+  </div>
+
+  <!-- 三件套 UMD 加载（相对路径）/ Triple UMD load (relative paths) -->
+  <script src="mermaid/mermaid.min.js"></script>
+  <script src="katex/katex.min.js"></script>
+  <script src="katex/auto-render.min.js"></script>
+  <script src="highlight/highlight.min.js"></script>
+
+  <script>
+    // 初始化 + typeof 探针，结果写入 #probe / Init + typeof probe, write to #probe
+    (function () {
+      var probe = document.createElement('div');
+      probe.className = 'probe';
+      probe.id = 'probe';
+      var out = [];
+      out.push('=== typeof 探针 / typeof probes ===');
+      out.push('mermaid : ' + (typeof mermaid !== 'undefined' ? '✅ defined (' + (mermaid.version || 'v?') + ')' : '❌ undefined'));
+      out.push('katex   : ' + (typeof katex !== 'undefined' ? '✅ defined (' + (katex.version || 'v?') + ')' : '❌ undefined'));
+      out.push('renderMathInElement : ' + (typeof renderMathInElement !== 'undefined' ? '✅ defined' : '❌ undefined'));
+      out.push('hljs    : ' + (typeof hljs !== 'undefined' ? '✅ defined (' + (hljs.version || 'v?') + ')' : '❌ undefined'));
+      probe.textContent = out.join('\n');
+      document.body.appendChild(probe);
+
+      // 仅在资源可用时触发渲染 / Only render if resources available
+      try {
+        if (typeof mermaid !== 'undefined') {
+          mermaid.initialize({ startOnLoad: false, theme: 'default' });
+          mermaid.run();
+        }
+        if (typeof renderMathInElement !== 'undefined') {
+          renderMathInElement(document.getElementById('content'), {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false }
+            ]
+          });
+        }
+        if (typeof hljs !== 'undefined') hljs.highlightAll();
+      } catch (e) {
+        var err = document.createElement('div');
+        err.className = 'probe err';
+        err.textContent = '渲染错误 / render error: ' + e.message;
+        document.body.appendChild(err);
+      }
+    })();
+  </script>
+</body>
+</html>

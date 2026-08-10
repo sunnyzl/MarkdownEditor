@@ -1,0 +1,24 @@
+{
+  "originHash" : "d676f0a6f0a64858713a7e6eb34f352d25ed64f40e7a2d9aba8ce88401a5bad9",
+  "pins" : [
+    {
+      "identity" : "down-gfm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/stackotter/Down-gfm",
+      "state" : {
+        "revision" : "0fc19f24ea5ae4ae803c7cdc186b9b02f1b5661b",
+        "version" : "0.12.0"
+      }
+    },
+    {
+      "identity" : "highlightr",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/raspu/Highlightr.git",
+      "state" : {
+        "revision" : "05e7fcc63b33925cd0c1faaa205cdd5681e7bbef",
+        "version" : "2.3.0"
+      }
+    }
+  ],
+  "version" : 3
+}
