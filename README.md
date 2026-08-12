@@ -48,6 +48,15 @@
 
 ---
 
+## Screenshot / 效果图
+
+<img src="docs/demo-overview.png" alt="MarkdownEditor Demo" width="100%">
+
+*Full-length screenshot: [docs/demo-full.png](docs/demo-full.png)*
+*完整长图：[docs/demo-full.png](docs/demo-full.png)*
+
+---
+
 ## Features / 功能特性
 
 ### Core / 核心
