@@ -91,7 +91,8 @@ struct MainWindowView: View {
                     .background(.bar)
             }
         }
-        .background(WindowPersistence())   // FR-085：窗口大小/位置持久化（保留，结构不动）
+        // ⚠️ 修复（窗口跳变）：移除 WindowPersistence——setFrameUsingName 在窗口显示后
+        // 瞬移导致可见跳变；位置持久化由 SwiftUI 场景帧记忆承担（无跳变）
     }
 
     /// 动态最小分栏宽度（用户补充需求）：窗口宽度比例 + 绝对下限
@@ -137,77 +138,4 @@ struct MainWindowView: View {
         let (line, column) = lineColumn(text: text, selection: selection)
         return "\(wordCount(text)) 词 · \(text.count) 字符 · 行 \(line + 1), 列 \(column + 1)"
     }
-}
-
-// 窗口大小/位置持久化（FR-085）：setFrameUsingName 恢复，willClose 保存
-// Window size/position persistence (FR-085): restore via setFrameUsingName, save on willClose
-struct WindowPersistence: NSViewRepresentable {
-    static let frameName = "MainWindow"
-
-    /// 恢复窗口 frame（FR-085）。抽为 static 供 didBecomeKey 观察者复用。
-    /// ⚠️ 修复（T2.1，根因 = 窗口恢复布局循环，T1.3 已确认）：恢复时机从 makeNSView 的
-    /// Task 内（窗口显示前）延迟到窗口首次显示后——启动时立即 setFrameUsingName 参与
-    /// NSHostingView/NSSplitView 初始布局往返 → AttributeGraph cycle（145360/144248/…）。
-    /// 窗口显示后再设帧不参与初始布局，cycle 消除且 FR-085 持久化能力保留。
-    /// ⚠️ 计划 API 缺陷适配：计划用 NSWindow.didBecomeVisibleNotification，但该通知在
-    /// AppKit 中不存在（SDK NSWindow.h 已核实）——改用 didBecomeKeyNotification：
-    /// 单窗口 app 显示路径（makeKeyAndOrderFront）必然触发，语义等价「窗口首次显示后」。
-    /// Restore window frame (FR-085), extracted as static for reuse by the
-    /// didBecomeKey observer (T2.1 fix: delayed restore after first display).
-    /// Plan API defect adapted: NSWindow.didBecomeVisibleNotification does not exist
-    /// in AppKit (verified in SDK NSWindow.h) — switched to didBecomeKeyNotification,
-    /// which always fires on the makeKeyAndOrderFront show path of a single-window app.
-    static func restoreFrame(for window: NSWindow) {
-        if !window.setFrameUsingName(Self.frameName) {
-            window.setContentSize(NSSize(width: 1100, height: 720))
-        }
-    }
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        // ⚠️ 修复 #4（第 7 轮）：DispatchQueue.main.async 闭包访问 @MainActor 属性（window）是警告源；
-        // 改用 Task { @MainActor in } 显式隔离
-        // Fix #4 (round 7): use Task { @MainActor in } for explicit isolation
-        Task { @MainActor in
-            guard let window = view.window else { return }
-            // 批次1 内存优化（design §批次1 根因③）：关闭 macOS 窗口恢复（App 重启不恢复窗口状态），
-            // 换取 @StateObject 释放稳定性（个人工具权衡）。frame 持久化（FR-085）经由
-            // setFrameUsingName/saveFrame 独立工作，不受影响。
-            // Disable session restoration for memory stability (personal-tool tradeoff).
-            // Frame persistence (FR-085) is independent and still works.
-            window.isRestorable = false
-            // 批次1 内存修复（design §批次1 根因②）：willClose observer 一次性自移除——
-            // 触发保存 frame 后立即 remove，防常驻观察者泄漏（CWE-772）。
-            // 与下方 didBecomeKey 的 token 自移除同模式。
-            // Self-removing observer (batch 1): remove after fire, same pattern as didBecomeKey.
-            var willCloseToken: NSObjectProtocol?
-            willCloseToken = NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification, object: window, queue: .main
-            ) { note in
-                guard let w = note.object as? NSWindow else { return }
-                w.saveFrame(usingName: Self.frameName)
-                if let t = willCloseToken { NotificationCenter.default.removeObserver(t) }
-            }
-            // ⚠️ T2.1：竞态分支——Task 执行时窗口可能已显示（窗口恢复/快速启动场景），
-            // isVisible 直接恢复，避免 didBecomeKey 永不触发导致 frame 永不恢复；
-            // 未显示 → 等首次显示（become key）后恢复（不参与初始布局往返 → cycle 消除）
-            // ⚠️ 评审补充（IMPORTANT）：观察者一次性自移除——触发后 removeObserver，
-            // 防常驻观察者泄漏（CWE-772）
-            if window.isVisible {
-                Self.restoreFrame(for: window)
-            } else {
-                var token: NSObjectProtocol?
-                token = NotificationCenter.default.addObserver(
-                    forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
-                ) { note in
-                    guard let w = note.object as? NSWindow else { return }
-                    Self.restoreFrame(for: w)
-                    if let t = token { NotificationCenter.default.removeObserver(t) }
-                }
-            }
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }

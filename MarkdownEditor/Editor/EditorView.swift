@@ -19,6 +19,7 @@ struct EditorView: NSViewRepresentable {
     // Editor-created callback: reports the textView at makeNSView time so the per-window
     // CommandExecutor can be wired (same shape as ScrollTracker.attach)
     var onTextViewCreated: ((MarkdownTextView) -> Void)?
+    var onFileDrop: ((URL) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onTextDidChange: onTextDidChange,
@@ -64,6 +65,8 @@ struct EditorView: NSViewRepresentable {
         }
         // ⚠️ 遗留 #5：主题初始值同步（订阅后主动同步一次——覆盖显式 dark 启动场景）
         textView.themeProvider = themeProvider
+        // 非图片文件拖入回调（FR-078：.md 拖到文本区直接打开）
+        textView.onFileDrop = onFileDrop
         textView.syncThemeFromProvider()
         // ⚠️ S-020：上报 textView（与 ScrollTracker.attach 同构）
         context.coordinator.onTextViewCreated?(textView)
@@ -97,6 +100,8 @@ struct EditorView: NSViewRepresentable {
         // ⚠️ 遗留 #5：themeProvider 刷新（闭包集跨批次变化；sync 仅 makeNSView 一次——
         // 后续主题变化由广播驱动，重复 sync 幂等无害但无必要）
         textView.themeProvider = themeProvider
+        // ⚠️ 与 themeProvider 同模式：闭包集跨批次刷新
+        textView.onFileDrop = onFileDrop
         // IME compose 期间跳过回填：S-014 打开文件恰逢 compose 时不销毁候选串（FR-006）；
         // 值比较已内置于 setTextProgrammatically（相同文本短路，不再需要外部 != 判断）
         // ⚠️ FixD2b（评审 IMPORTANT #1）：折叠激活时跳过回填——折叠态显示由 toggleFold 维护，

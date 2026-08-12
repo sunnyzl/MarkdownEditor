@@ -25,8 +25,19 @@
     background: var(--code-bg); padding: .15em .4em; border-radius: 3px;
     font-family: var(--code-font-family); font-size: 90%;
   }
-  pre { background: var(--code-bg); padding: 12px; border-radius: 6px; overflow-x: auto; }
-  pre code { background: none; padding: 0; }
+  pre {
+    background: var(--code-bg); padding: 12px 12px 30px; border-radius: 6px;
+    overflow-x: auto;
+    /* ⚠️ 修复（真机验收）：WKWebView 横向滚动条为系统 overlay，悬浮于滚动容器
+     * 底部边缘、覆盖内容——padding-bottom 30px 把末行代码抬离滚动条区域；
+     * （scrollbar-gutter 对内部滚动容器不生效，实测无效） */
+  }
+  /* ⚠️ 修复（真机验收）：WKWebView 横向滚动条默认 overlay 叠加——压在末行代码上；
+   * 自定义滚动条强制转占位式（位于代码下方，不遮挡；任何系统滚动条设置下行为一致） */
+  pre::-webkit-scrollbar { height: 10px; }
+  pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+  pre::-webkit-scrollbar-track { background: transparent; }
+  pre code { background: none; padding: 0 0 6px 0; display: block; }
   pre.mermaid { background: transparent; border: 1px solid var(--border); text-align: center; }
   /* FR-047：mermaid 语法错误 → 样式化错误块（mermaid v11 错误渲染为 SVG
    * 内含 .error-icon/.error-text，文本 "Syntax error in text"；此处以 :has() 命中：
@@ -45,6 +56,9 @@
   th, td { border: 1px solid var(--border); padding: 6px 12px; }
   a { color: var(--link); }
   .katex-display { overflow-x: auto; overflow-y: hidden; }
+  .katex-display::-webkit-scrollbar { height: 10px; }
+  .katex-display::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+  .katex-display::-webkit-scrollbar-track { background: transparent; }
   /* S-026 FR-047：KaTeX 错误样式——katex.min.css 无 .katex-error 规则（grep 0 处实证），
    * throwOnError=false 渲染错误公式为 .katex-error span（原文可见 + 红色标记）。
    * ⚠️ MINOR #9：KaTeX 内联 errorColor（#cc0000）为普通声明，author-important 的

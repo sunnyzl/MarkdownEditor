@@ -30,6 +30,12 @@ struct MarkdownEditorApp: App {
         WindowGroup(id: "editor") {
             MainContentAssembly()
         }
+        // ⚠️ 修复（空白窗口）：阻止系统为外部 open 事件自动创建场景窗口
+        //（macOS 对 application(_:open:) 的默认响应会新建空白 WindowGroup 场景）。
+        // 窗口创建完全由 routeOpen 控制（同文件聚焦 / 空白接管 / 建窗渲染）
+        .handlesExternalEvents(matching: [])
+        // ⚠️ 修复（双窗口）：场景恢复禁用经 AppDelegate 的 applicationShouldSaveApplicationState
+        // 等方法（macOS 14 可用）；restorationBehavior(.disabled) 仅 15+，此处不适用
         .defaultSize(width: 1100, height: 720)
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
@@ -37,7 +43,14 @@ struct MarkdownEditorApp: App {
             // Cmd-N 语义定稿（修复 #4/第 1 轮）：= 新建窗口（openWindowHandler 经静态注册；
             // commands 闭包无 @Environment(\.openWindow) 访问权）
             CommandGroup(replacing: .newItem) {
-                Button("新建窗口") { MainContentState.openWindowHandler?() }
+                Button("新建窗口") {
+                    if MainContentState.openWindowHandler != nil {
+                        MainContentState.openWindowHandler?()
+                    } else {
+                        // 无存活场景 → 激活物化初始窗口（修复 A4）
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
                     .keyboardShortcut("n", modifiers: .command)
                 Button("打开…") { openFileFromMenu() }
                     .keyboardShortcut("o", modifiers: .command)
@@ -185,7 +198,9 @@ func openFileFromMenu() {
     guard panel.runModal() == .OK, let url = panel.url else {
             return
     }
-    MainContentState.pendingOpenURL = url
+    if !MainContentState.pendingOpenURLs.contains(url) {
+        MainContentState.pendingOpenURLs.append(url)
+    }
     MainContentState.openWindowHandler?()
 }
 
@@ -196,7 +211,9 @@ func openRecentFromMenu(_ url: URL) {
         state.fileOps.open(url: url)
         return
     }
-    MainContentState.pendingOpenURL = url
+    if !MainContentState.pendingOpenURLs.contains(url) {
+        MainContentState.pendingOpenURLs.append(url)
+    }
     MainContentState.openWindowHandler?()
 }
 
@@ -241,7 +258,7 @@ private func shortcutModifiers(for command: EditorCommand) -> EventModifiers {
 // 批次 5（T5.4）：fileOps 经 init 注入（与 App 级同一实例）；工具栏/菜单接线 + 关闭确认
 // ⚠️ 遗留 #7（批次 3）：init() 无参（fileOps 容器自建）；openWindow 环境值注册 Cmd-N
 @MainActor
-private struct MainContentAssembly: View {
+struct MainContentAssembly: View {
     @StateObject private var state: MainContentState
     @State private var editorText = ""
     // ⚠️ 遗留 #7：openWindow 环境值（Cmd-N 新建窗口；onAppear 注册到静态 handler）
@@ -304,6 +321,10 @@ private struct MainContentAssembly: View {
                     // textView report → container injects CommandExecutor
                     onTextViewCreated: { [weak state] textView in
                         state?.attachTextView(textView)
+                    },
+                    // ⚠️ 编辑器内拖入非图片文件 → 打开（FR-078；NFR-011 确认链路复用）
+                    onFileDrop: { [weak state] url in
+                        state?.fileOps.open(url: url)
                     }
                 )
                 // ⚠️ 修复（round4 T1.2b）：.frame(minWidth: 220) 移除——固定下限压过
@@ -346,6 +367,7 @@ private struct MainContentAssembly: View {
             // ⚠️ 遗留 #7：注册新建窗口动作（每窗口 onAppear 注册，行为一致；onDisappear 不清除——
             // 窗口关闭后 Cmd-N 仍可用，openWindow(id:) 不依赖单窗口生命周期）
             MainContentState.openWindowHandler = { openWindow(id: "editor") }
+            MainContentState.openWindowHandlerToken = ObjectIdentifier(state)
             // ⚠️ 第 11 轮补全（#4）：打开/新建文件回填编辑器（editorText 是 assembly 的 @State）
             // ⚠️ 修复（round5 T1.3）：onTextRead 直连渲染——previewOnly 模式 EditorView 不在
             // 视图树 → updateNSView 回填链路不执行 → 预览不渲染；直接 coordinator.input 闭合。
@@ -359,16 +381,32 @@ private struct MainContentAssembly: View {
                 state?.latestEditorText = text   // S-024：回填即最新文本，直接维护（消除 updateNSView 合成耦合）
                 state?.coordinator.input(text)
             }
-            // App 级打开：新窗口读取 pendingOpenURL（关闭窗口后菜单打开路径）
+            // App 级打开：窗口消费待打开队列队首（仅空白窗口——"为谁而建"不可知，
+            // 空白判定等价且安全；多文档窗口模型，修复多窗口/空白窗口）
             // ⚠️ 必须在 onTextRead 注册之后——open(url:) 内部调用 onTextRead 回填编辑器
-            if let pendingURL = MainContentState.pendingOpenURL {
-                MainContentState.pendingOpenURL = nil
+            if state.fileOps.currentDocument == nil,
+               let pendingURL = MainContentState.pendingOpenURLs.first {
+                MainContentState.pendingOpenURLs.removeFirst()
+                NSLog("[DIAG-OPENFILE] onAppear pendingURL = %@", pendingURL.lastPathComponent)
                 state.fileOps.open(url: pendingURL)
+            } else {
+                NSLog("[DIAG-OPENFILE] onAppear no pendingURL")
+            }
+            // 链式推进：队列非空 → 下一个请求继续（互斥 + 延时，不会重复建窗）
+            if !MainContentState.pendingOpenURLs.isEmpty {
+                MainContentState.requestWindow()
             }
         }
         .onDisappear {
             // 环修复：解除 onTextRead 闭包（闭包经 @StateObject 捕获 state → fileOps → 闭包环），窗口关闭后容器可解脱
             state.fileOps.onTextRead = nil
+            // ⚠️ 修复（崩溃根因）：场景销毁时配对清空静态 handler——
+            // 悬空闭包持有已销毁场景的 openWindow 环境值，后续调用（drain/菜单/重试）
+            // 触发 = 对已释放对象发消息 → EXC_BAD_ACCESS
+            if MainContentState.openWindowHandlerToken == ObjectIdentifier(state) {
+                MainContentState.openWindowHandler = nil
+                MainContentState.openWindowHandlerToken = nil
+            }
         }
         .toolbar {
             // 工具栏接线（ToolbarActions 实参；state.fileOps 为每窗口实例——#7 后按钮闭包
@@ -471,7 +509,12 @@ struct WindowCloseGuard: NSViewRepresentable {
             }
             self.window = window
             self.state = state
+            // ⚠️ 修复（窗口跳变）：isRestorable=false 从 WindowPersistence 移入此处——
+            // 统一窗口生命周期管理（每窗口生效；防 macOS 会话恢复复活空白窗口）
+            window.isRestorable = false
             MainContentState.register(state, for: window)   // #7：key window 路由数据源
+            // ⚠️ 注册即接管待打开队列（冷启动竞态窗口：注册即渲染，无空白等待）
+            MainContentState.consumePendingIfBlank(state)
             state.autoSave.attach(to: window)   // ⚠️ S-030：自动保存挂接（失焦 + 30s；迁移场景幂等——内部先 detach）
             // ⚠️ T4.2（FR-077）：外部修改检测——didBecomeKey 挂接（AutoSave 同构观察者；
             // 每次窗口成为 key 即比对 mtime；冲突弹窗/静默重载在 fileOps 内部处理）
@@ -496,10 +539,22 @@ struct WindowCloseGuard: NSViewRepresentable {
                 // 弹保存提示（应只在窗口关闭时确认一次）
                 NotificationCenter.default.addObserver(
                     forName: NSWindow.willCloseNotification, object: window, queue: .main)
-                { [weak self] _ in
+                { [weak self, weak state] _ in
                     MainActor.assumeIsolated {
-                        guard let self, let state = self.state else { return }
+                        guard let self, let state else { return }
                         MainContentState.unregister(state, for: window)
+                        // ⚠️ 修复（最后窗口关闭崩溃）：清理从 onDisappear 镜像到 willClose——
+                        // 手动窗口（createWindowManually）的 NSHostingView 永不离树，
+                        // onDisappear 不触发 → 静态 openWindowHandler 悬空 → 关闭后
+                        // drain/菜单调用 openWindow → EXC_BAD_ACCESS。willClose 对两种
+                        // 窗口均必然触发，是可靠清理点（token 配对防多窗口误清）
+                        if MainContentState.openWindowHandlerToken == ObjectIdentifier(state) {
+                            MainContentState.openWindowHandler = nil
+                            MainContentState.openWindowHandlerToken = nil
+                        }
+                        state.fileOps.onTextRead = nil
+                        // 防御：WKWebView JS 在途 dealloc 是 WebKit 间歇崩溃源
+                        state.previewWebView.teardown()
                         self.keyTokens.forEach { NotificationCenter.default.removeObserver($0) }
                         self.keyTokens = []
                     }

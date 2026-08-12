@@ -131,6 +131,9 @@ final class FileOperations: DocumentHandling {
     }
 
     /// 编辑器文本流 → 文档（配合 RenderCoordinator.input 调用，保持未保存标记正确）
+    /// 当前文档关联文件（standardizedFileURL 归一化，供窗口匹配；open/saveAs/new 自动同步）
+    var currentFileURL: URL? { currentDocument?.fileURL?.standardizedFileURL }
+
     func documentDidEdit(_ text: String) {
         guard let doc = currentDocument else {
             // 未打开文档时输入 → 自动建立 Untitled 文档（FR-071 语义）

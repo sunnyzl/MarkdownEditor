@@ -8,6 +8,8 @@ import UniformTypeIdentifiers   // ⚠️ FR-056（收尾批次）：UTType.imag
 final class MarkdownTextView: NSTextView, EditorEventSource {
     // 编辑事件（S-010 订阅：textDidChange → RenderCoordinator.input）
     var onTextDidChange: ((String) -> Void)?
+    /// 非图片文件拖入回调（FR-078）
+    var onFileDrop: ((URL) -> Void)?
     // ⚠️ P1-1：原始文本回调（保存/导出数据源）——rawText 每次更新时触发，
     // 恒携带完整原文（折叠态下含折叠区间行；onTextDidChange 折叠时只带 renderingText）
     var onRawTextDidChange: ((String) -> Void)?
@@ -268,7 +270,7 @@ final class MarkdownTextView: NSTextView, EditorEventSource {
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pasteboard = sender.draggingPasteboard
         if !Self.imageURLs(from: pasteboard).isEmpty { return .copy }
-        if !Self.fileURLs(from: pasteboard).isEmpty { return [] }
+        if !Self.fileURLs(from: pasteboard).isEmpty { return .copy }   // 非图片文件：接受，落地时 onFileDrop 打开
         return super.draggingEntered(sender)
     }
 
@@ -277,7 +279,12 @@ final class MarkdownTextView: NSTextView, EditorEventSource {
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
         if handleImageDrop(urls: Self.imageURLs(from: pasteboard)) { return true }
-        if !Self.fileURLs(from: pasteboard).isEmpty { return false }
+        let fileURLs = Self.fileURLs(from: pasteboard)
+        if !fileURLs.isEmpty {
+            // 非图片文件：回调打开（FR-078——.md 拖入直接打开）
+            fileURLs.forEach { onFileDrop?($0) }
+            return true
+        }
         return super.performDragOperation(sender)
     }
 

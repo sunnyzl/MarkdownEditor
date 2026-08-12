@@ -100,8 +100,91 @@ final class MainContentState: ObservableObject {
     /// 新建窗口动作（MainContentAssembly.onAppear 注册 openWindow(id: "editor")；
     /// 菜单 Cmd-N 经此触发——.commands 闭包无 @Environment(\.openWindow) 访问权）
     static var openWindowHandler: (() -> Void)?
-    /// App 级待打开 URL（关闭窗口后菜单打开文件——新窗口 onAppear 读取）
-    static var pendingOpenURL: URL?
+    /// 与 openWindowHandler 配对的场景 token（onDisappear 仅清空指向本窗口的闭包）
+    static var openWindowHandlerToken: ObjectIdentifier?
+    /// 兜底建窗（AppDelegate 注册；drain 无 handler 可用时调用——冷启动外部事件启动）
+    static var manualWindowCreator: (() -> Void)?
+    static var manualWindowCreated = false
+    /// App 级待打开文件队列（FIFO；替代单槽位 pendingOpenURL——多请求竞态不丢失）
+    static var pendingOpenURLs: [URL] = []
+    /// 是否已注册过窗口（冷启动歧义判定：首窗注册前 = 默认窗口可能将至，须延时决策）
+    static var hasEverRegisteredWindow = false
+    private static var drainScheduled = false   // drain 互斥：同一时刻至多一个在途
+    private static var drainSpinCount = 0        // drain 自旋计数（防无窗口永久空转）
+    static let drainMaxSpins = 60                // 30s 上限
+
+    /// 当前文档关联文件（standardized；nil = 空白窗口）
+    var currentFileURL: URL? { fileOps.currentFileURL }
+
+    /// 文件 → 窗口映射（线性扫描 allStates；standardized 归一化比较）
+    static func state(forFile url: URL) -> MainContentState? {
+        let target = url.standardizedFileURL
+        return allStates.first { $0.currentFileURL == target }
+    }
+
+    /// 空白窗口：从未打开/新建过文档（currentDocument == nil），或未编辑的 Untitled。
+    /// 接管它不会覆盖任何用户内容——"绝不出现空白窗口"的安全垫
+    static func firstBlankState() -> MainContentState? {
+        allStates.first { state in
+            guard let doc = state.fileOps.currentDocument else { return true }
+            return doc.fileURL == nil && !doc.hasUnsavedChanges
+        }
+    }
+
+    /// 待打开队列即时接管：空白窗口注册时调用（冷启动竞态窗口：注册即渲染）
+    static func consumePendingIfBlank(_ state: MainContentState) {
+        // ⚠️ 修复 D：onTextRead 未挂接时不消费（WindowCloseGuard 可能先于 onAppear 执行 →
+        // open 时回填闭包未就绪 → 文件打开但编辑器空白）；onAppear 兜底消费
+        guard state.fileOps.onTextRead != nil,
+              state.fileOps.currentDocument == nil,
+              let url = pendingOpenURLs.first else { return }
+        pendingOpenURLs.removeFirst()
+        state.fileOps.open(url: url)
+    }
+
+    /// 请求建窗统一入口：**不直接建窗**——统一走 drain（500ms 延时）：
+    /// ① 系统双击自动创建的默认窗口先出现 → drain 空白接管复用（单窗口）
+    /// ② 若 drain 时仍无空白窗口（运行中无窗口且系统未建）→ 兜底建窗
+    /// 修复（双窗口根因）：此前 hasEver=true 直接建窗 → 与系统默认窗口双建
+    static func requestWindow() {
+        scheduleDrain()
+    }
+
+    static func scheduleDrain() {
+        guard !drainScheduled else { return }
+        drainScheduled = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            drainScheduled = false
+            drainSpinCount += 1
+            drainPendingOpen()
+        }
+    }
+
+    /// 队列处理（drain）：空白接管队首 → 仍非空则请求建窗
+    static func drainPendingOpen() {
+        if let blank = firstBlankState(), let url = pendingOpenURLs.first {
+            pendingOpenURLs.removeFirst()
+            blank.fileOps.open(url: url)
+        }
+        // 仍非空 → 无空白窗口可接管 → 兜底建窗
+        if !pendingOpenURLs.isEmpty {
+            if MainContentState.openWindowHandler != nil {
+                MainContentState.openWindowHandler?()
+            } else if drainSpinCount < 2 {
+                // 1s 宽限：等待场景物化（快启动竞态）
+                scheduleDrain()
+            } else if let creator = MainContentState.manualWindowCreator,
+                      !MainContentState.manualWindowCreated {
+                // ⚠️ 修复（冷启动不弹窗）：场景无法物化（handlesExternalEvents 关闭）→
+                // 手动建窗兜底（单次防双窗；窗口 onAppear 注册 handler + 消费 pending）
+                MainContentState.manualWindowCreated = true
+                creator()
+            } else {
+                NSLog("[DIAG-DRAIN] pending 残留 %d", pendingOpenURLs.count)
+            }
+        }
+    }
 
     // ⚠️ 遗留 #7：init() 无参（fileOps 容器内创建）；其余原 init 内容
     //（errorHandler/coordinator/scrollSync/回调接线/themeService）保留
@@ -330,6 +413,7 @@ final class MainContentState: ObservableObject {
     // 注册时机：WindowCloseGuard 安装时（拿到 window 后）——view 层唯一 window 持有者
 
     static func register(_ state: MainContentState, for window: NSWindow) {
+        hasEverRegisteredWindow = true
         // 迁移守卫对称修复：同一 state 已注册到其他存活窗口时先解除旧映射，
         // 防 allStates 重复（Cmd-Q 重复确认）与注册表残留（weak-weak 表不自动清理同 state 多 key）
         // Migration-guard symmetric fix: if the same state is already registered to another

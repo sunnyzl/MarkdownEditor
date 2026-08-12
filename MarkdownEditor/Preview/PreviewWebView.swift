@@ -61,11 +61,25 @@ final class PreviewWebView: NSObject, PreviewProtocol, WKScriptMessageHandler, W
         setupPinchGesture()   // ⚠️ round7 T1.2：触控板捏合缩放手势（根因 2）
     }
 
+    /// 显式 teardown（关闭窗口时调用——WKWebView 在 JS 在途时 dealloc 是 WebKit
+    /// 间歇崩溃源；停载 + 移除 handler + 置空回调，再随 state 释放）
+    func teardown() {
+        webView.stopLoading()
+        webView.removeFromSuperview()
+        webView.gestureRecognizers.forEach { webView.removeGestureRecognizer($0) }
+        webView.configuration.userContentController.removeAllScriptMessageHandlers()
+        onRenderDone = nil
+        onLinkClicked = nil
+        onErrorOccurred = nil
+        onPageLoaded = nil
+    }
+
     // 批次1 内存诊断埋点（D3）：验证 PreviewWebView 实例随窗口关闭释放。
     // 手动开关窗 5 次 → Console 观察 [LEAK] 日志计数应与开关次数一致。
     // 验证通过后可保留（仅 NSLog 无副作用）或删除。
     // Leak probe (batch 1, D3): verify instance dealloc on window close.
     deinit {
+        MainActor.assumeIsolated { teardown() }
         MainActor.assumeIsolated {
             NSLog("[LEAK] PreviewWebView dealloc")
         }

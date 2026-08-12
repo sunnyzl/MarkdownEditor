@@ -150,6 +150,7 @@
 		47970D3377CA30344CF08303 /* ScrollSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollSync.swift; sourceTree = "<group>"; };
 		4AE3FCD833D3BE937FFADD0D /* PaneSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneSettings.swift; sourceTree = "<group>"; };
 		4BB622FCA081C78783B995AD /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		4D474E70510096A4B84F934C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4D59838C8693A024390B0B18 /* PaneSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneSettingsTests.swift; sourceTree = "<group>"; };
 		510B7F151048E619778446B3 /* WebAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WebAssets; sourceTree = SOURCE_ROOT; };
 		5618BAF89E50B3DFED2A59A9 /* GfmPostProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GfmPostProcessor.swift; sourceTree = "<group>"; };
@@ -276,6 +277,7 @@
 				C0083E96156242D21D654189 /* Window */,
 				C2EA2758F6A302BC9BED5E90 /* .keep */,
 				1E0C8AC2F1C01737EBC69C3E /* Assets.xcassets */,
+				4D474E70510096A4B84F934C /* Info.plist */,
 			);
 			path = MarkdownEditor;
 			sourceTree = "<group>";
@@ -1350,6 +1352,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = MarkdownEditor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1365,6 +1368,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = MarkdownEditor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

@@ -45,6 +45,18 @@ targets:
       - path: WebAssets
         type: folder          # 蓝色 Folder Reference（保持目录结构）/ Blue folder reference
         buildPhase: resources # 放入 Resources 构建阶段 / add to Resources build phase
+    # ⚠️ 修复（双击打开）：恢复文档类型声明（关键：不带 NSDocumentClass）——
+    # 带 NSDocumentClass → odoc 事件走 NSDocumentController（delegate 回调失效）；
+    # 不带 → 按 NSApplication.h 路由规则走 delegate application(_:openURLs:)
+    info:
+      path: MarkdownEditor/Info.plist
+      properties:
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Markdown Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - net.daringfireball.markdown
     dependencies:
       - package: DownGfm
         product: Down
@@ -53,6 +65,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.app
         PRODUCT_NAME: MarkdownEditor
+        # ⚠️ 封版 v1.1.0：多文档窗口模型 + 关窗崩溃修复等
+        MARKETING_VERSION: 1.1.0
+        CURRENT_PROJECT_VERSION: 11
 
   # ══ 单元测试 target（NFR-032）══
   MarkdownEditorTests:
