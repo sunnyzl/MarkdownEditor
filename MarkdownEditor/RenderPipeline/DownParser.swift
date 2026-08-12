@@ -17,8 +17,13 @@ struct DownParser: MarkdownParsing {
 
     /// S-011 GFM 入口：`.default ∪ .sourcePos`（fork 无 GFM 扩展，源码验证）→ Swift 后处理
     func render(markdown: String, gfm: Bool) throws -> String {
-        let down = Down(markdownString: markdown)
+        // ⚠️ 修复（矩阵块不渲染）：MathBlockProtector 前置保护——$$ 块替换为 PUA token，
+        // 防 cmark setext 标题拆分（= 独立行）+ 反斜杠折叠（\\ → \）
+        let protected = MathBlockProtector.protect(markdown)
+        let down = Down(markdownString: protected.text)
         let html = try down.toHTML(.default.union(.sourcePos))
-        return gfm ? gfmProcessor.process(html) : html
+        // 还原先于 GFM 后处理（token 还原为 HTML 转义原文）
+        let restored = MathBlockProtector.restore(html, blocks: protected.blocks)
+        return gfm ? gfmProcessor.process(restored) : restored
     }
 }

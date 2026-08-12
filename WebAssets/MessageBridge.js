@@ -185,6 +185,19 @@
       scrollHeight: document.body.scrollHeight,
       elapsed: Math.round(performance.now() - t0)
     });
+    /* 临时诊断：KaTeX 渲染统计 + 残留 $$ 块内容 */
+    try {
+      var diag = 'katex=' + container.querySelectorAll('.katex').length +
+                 ' dollar=' + (container.innerHTML.match(/\$\$/g) || []).length;
+      // 找残留 $$ 块
+      var text = container.innerHTML;
+      var idx = text.indexOf('$$');
+      if (idx >= 0) {
+        var frag = text.substring(idx, Math.min(idx + 120, text.length));
+        diag += ' RESIDUE: ' + frag;
+      }
+      post('errorOccurred', { phase: 'diag-katex', message: diag });
+    } catch (e) {}
   };
 
   /* S-026（FR-035/046）：预览配置（window.setConfig）——Swift 侧 PreviewSettings →

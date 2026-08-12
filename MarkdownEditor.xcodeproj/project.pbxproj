@@ -39,6 +39,7 @@
 		55C9B7969A65EBABA3BC97B0 /* MainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89547B7866797AF34CA8A0B8 /* MainApp.swift */; };
 		55CD2564FE54E2B99797E3DC /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32E61D29DBEC16EE5476ADE3 /* MarkdownTextView.swift */; };
 		55D116676B0EFD1EDC4E624C /* Down in Frameworks */ = {isa = PBXBuildFile; productRef = 7038C501C914CF3B67391D35 /* Down */; };
+		56C886011274BE6E5174A3BA /* MathBlockProtector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9D8C65A5F9B4F8A86E8F30 /* MathBlockProtector.swift */; };
 		56E3CB3EF50714C7771EC43B /* DocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B1DDF8E0A9DE8DB4678BF8 /* DocumentTests.swift */; };
 		571C04726034BF4188F6166D /* TextFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CD33F8113E2F88714BF42BE /* TextFormattingTests.swift */; };
 		5CC663538935CC346D8676CF /* Down in Frameworks */ = {isa = PBXBuildFile; productRef = A953EE0392685F07B754D39A /* Down */; };
@@ -164,6 +165,7 @@
 		640B63599C7FDE7CB01EF79E /* DownParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownParser.swift; sourceTree = "<group>"; };
 		6497A1D884622D29E143E5CF /* SyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntaxHighlighter.swift; sourceTree = "<group>"; };
 		6AD60F6B8BF0E9276A4A4C4D /* BundleLoadHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleLoadHarness.swift; sourceTree = "<group>"; };
+		6C9D8C65A5F9B4F8A86E8F30 /* MathBlockProtector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathBlockProtector.swift; sourceTree = "<group>"; };
 		6DEF20244680EB8A3849E7D5 /* RenderCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderCoordinatorTests.swift; sourceTree = "<group>"; };
 		72E34B43471D125F78172D19 /* FontSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontSettingsTests.swift; sourceTree = "<group>"; };
 		74E5E84C98EC2024D2767594 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
@@ -466,6 +468,7 @@
 				640B63599C7FDE7CB01EF79E /* DownParser.swift */,
 				B49380B2DC577C5732DCD05A /* ErrorHandling.swift */,
 				5618BAF89E50B3DFED2A59A9 /* GfmPostProcessor.swift */,
+				6C9D8C65A5F9B4F8A86E8F30 /* MathBlockProtector.swift */,
 				F602CE978DE39C04FB8816C4 /* MermaidPreprocessor.swift */,
 				F0025EF917DCB3A5C17A4F71 /* RenderCoordinator.swift */,
 				04CB3B2CC2D26E6BC268738E /* SourceMapParser.swift */,
@@ -949,6 +952,7 @@
 				8659B96E3736F74C9E5E5D22 /* MainContentState.swift in Sources */,
 				320DF99A0BB5A12AAF71751F /* MainWindowView.swift in Sources */,
 				55CD2564FE54E2B99797E3DC /* MarkdownTextView.swift in Sources */,
+				56C886011274BE6E5174A3BA /* MathBlockProtector.swift in Sources */,
 				334841DA7DB95713B0720492 /* MermaidPreprocessor.swift in Sources */,
 				493AF55192D6AE11950CC85C /* ModuleProtocols.swift in Sources */,
 				904DDBB8314E9D4381C0D95D /* NotificationNames.swift in Sources */,
@@ -1352,13 +1356,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				INFOPLIST_FILE = MarkdownEditor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.markdowneditor.app;
 				PRODUCT_NAME = MarkdownEditor;
 				SDKROOT = macosx;
@@ -1370,13 +1374,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				INFOPLIST_FILE = MarkdownEditor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.markdowneditor.app;
 				PRODUCT_NAME = MarkdownEditor;
 				SDKROOT = macosx;

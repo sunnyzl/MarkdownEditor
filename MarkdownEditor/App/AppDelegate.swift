@@ -61,6 +61,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // ② 空白窗口 → 即时接管
         if let blank = MainContentState.firstBlankState() {
+            // ⚠️ 修复（打开显示旧内容）：onTextRead 未挂（窗口 onAppear 未执行）时
+            // 直接 open 会设置 currentDocument 但回填失败 → 预览显示旧内容。
+            // 未就绪 → 入队等 onAppear 消费（onAppear 挂好 onTextRead 后消费队首）
+            if blank.fileOps.onTextRead == nil {
+                NSLog("[DIAG-ROUTE] ②b blank 未就绪 → 入队")
+                if !MainContentState.pendingOpenURLs.contains(url) {
+                    MainContentState.pendingOpenURLs.append(url)
+                }
+                blank.window?.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
             NSLog("[DIAG-ROUTE] ② blank takeover")
             blank.fileOps.open(url: url)
             blank.window?.makeKeyAndOrderFront(nil)

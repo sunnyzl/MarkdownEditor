@@ -35,7 +35,12 @@ final class MainContentState: ObservableObject {
     // onSelectionDidChange 只带 NSRange，选区定位需要全文上下文；latestEditorText 由 body 的
     // onTextDidChange 闭包维护（避免 @State 捕获快照坑：SwiftUI 闭包捕获 View struct 快照不更新）
     let previewSettings: PreviewSettings
-    var latestEditorText = ""
+    // ⚠️ 修复（状态栏不刷新）：@Published——状态栏文本数据源自身发布变化，objectWillChange →
+    // MainContentAssembly body 重算 → statusText 重新组装。修复前为普通 var：状态栏刷新依赖
+    // 隐式驱动（latestSelection @Published 光标移动 / editorText @State 写），"文本变化但两个
+    // 隐式驱动均不触发"的场景（折叠态编辑、text == editorText 回环）状态栏卡死。
+    // Status bar data source must publish changes itself — no reliance on implicit drivers.
+    @Published var latestEditorText = ""
     // ⚠️ P1-1：编辑器原始文本（保存/导出数据源）——优先 textView.rawText（折叠态下
     // 完整原文）；未挂接 textView（previewOnly 模式/测试环境）回落 latestEditorText
     var editorRawText: String {

@@ -83,6 +83,33 @@ final class MainContentStateTests: XCTestCase {
         XCTAssertEqual(state.latestEditorText, "", "初始空文本")
     }
 
+    // ⚠️ 修复回归（状态栏不刷新）：latestEditorText 必须是 @Published——文本变化 →
+    // objectWillChange → MainContentAssembly body 重算 → statusText 重新组装。
+    // 修复前为普通 var：状态栏刷新依赖隐式驱动（latestSelection 光标移动/editorText @State 写），
+    // "文本变化但隐式驱动均不触发"的场景（折叠态编辑等）状态栏卡死。
+    // Regression (status bar not refreshing): latestEditorText must be @Published so text
+    // changes drive the status bar recomposition directly, without implicit drivers.
+    @MainActor
+    func testLatestEditorTextIsPublished() {
+        let state = MainContentState(defaults: makeDefaults())
+        var emissions = 0
+        let cancellable = state.objectWillChange.sink { _ in emissions += 1 }
+        state.latestEditorText = "hello"
+        XCTAssertEqual(emissions, 1, "latestEditorText 写入应发出 objectWillChange（@Published 契约）")
+        withExtendedLifetime(cancellable) {}
+    }
+
+    // ⚠️ 状态栏契约（S-034/FR-087）：latestSelection @Published——光标移动驱动状态栏行列刷新
+    @MainActor
+    func testLatestSelectionIsPublished() {
+        let state = MainContentState(defaults: makeDefaults())
+        var emissions = 0
+        let cancellable = state.objectWillChange.sink { _ in emissions += 1 }
+        state.latestSelection = NSRange(location: 5, length: 0)
+        XCTAssertEqual(emissions, 1, "latestSelection 写入应发出 objectWillChange（@Published 契约）")
+        withExtendedLifetime(cancellable) {}
+    }
+
     // ⚠️ S-028 追加：分栏默认从 PaneSettings 注入（FR-106——启动/新窗口生效）
 
     func testInitReadsPaneModeDefaultFromSettings() {
