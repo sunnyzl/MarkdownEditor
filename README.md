@@ -25,7 +25,13 @@
 >
 > **Initial Prompt / 初始提示词：**
 >
+> **【中文版 / Chinese Version】**
+>
 > > 我想要做一个 mac 端的 markdown 软件供自己使用，要求页面简单，操作方便，可编辑，可看效果，也可左右分栏左边编辑后边实时看效果，支持各种功能的快捷操作，支持 latex，mermaid 图自动渲染（使用最新版本的 mermaid）
+>
+> **【English Version / 英文版】**
+>
+> > I want to create a macOS Markdown application for my own use. It should have a simple, easy-to-use interface, support editing and preview, with a split-pane layout where the left side is the editor and the right side shows real-time preview. It should support shortcut operations for various features, LaTeX rendering, and automatic Mermaid diagram rendering (using the latest version of Mermaid).
 >
 > **Development Process / 开发过程：**
 >
