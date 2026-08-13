@@ -557,6 +557,14 @@ struct WindowCloseGuard: NSViewRepresentable {
                         state.previewWebView.teardown()
                         self.keyTokens.forEach { NotificationCenter.default.removeObserver($0) }
                         self.keyTokens = []
+                        // ⚠️ 修复（退出后延迟崩溃）：macOS 15 SwiftUI 下
+                        // applicationShouldTerminateAfterLastWindowClosed 不生效 →
+                        // 关最后一个窗口后 app 仍存活 → AppKit Touch Bar 机制显示周期崩溃。
+                        // 显式退出：最后一个窗口关闭时 terminate（进程在下个显示周期前消亡）
+                        if MainContentState.allStates.isEmpty {
+                            NSLog("[DIAG-CLOSE] last window closed, terminating")
+                            NSApp.terminate(nil)
+                        }
                     }
                 },
             ]
