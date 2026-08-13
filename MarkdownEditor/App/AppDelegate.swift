@@ -10,10 +10,14 @@ import SwiftUI
 // 补 @MainActor 避免 Swift 6 语言模式 #ConformanceIsolation 编译错误
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// 修复：关闭最后一个窗口后应用保持运行（macOS 标准——System Preferences 等行为）
-    /// 否则用户关窗后 File 菜单消失/无法打开文件
+    /// ⚠️ 修复（退出后延迟崩溃）：关最后一个窗口即退出（true）——
+    /// 崩溃根因：AppKit 内部 Touch Bar 文本查找机制（NSTouchBarFinderSetNeedsUpdateOnMain
+    /// block）在窗口关闭后下一次显示周期 flush 时释放已悬挂的 NSMapTable value → SIGSEGV。
+    /// 崩溃在 AppKit 内部、Swift 层无法修复；关窗即退出使进程在下个显示周期前消亡，
+    /// 崩溃永不出现（用户观感本就是"关闭后应用退出"）。功能已核查不损：
+    /// 双击 md 冷启动/菜单打开/设置面板均独立于旧进程存活。
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        false
+        true
     }
 
     /// 禁用应用状态恢复（macOS 14 可用；配合修复 A 场景恢复禁用）

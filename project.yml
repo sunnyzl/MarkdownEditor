@@ -66,8 +66,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.markdowneditor.app
         PRODUCT_NAME: MarkdownEditor
         # ⚠️ 封版 v1.1.0：多文档窗口模型 + 关窗崩溃修复等
-        MARKETING_VERSION: 1.1.1
-        CURRENT_PROJECT_VERSION: 12
+        MARKETING_VERSION: 1.1.2
+        CURRENT_PROJECT_VERSION: 13
 
   # ══ 单元测试 target（NFR-032）══
   MarkdownEditorTests:
