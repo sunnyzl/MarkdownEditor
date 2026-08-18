@@ -111,7 +111,18 @@ struct MainWindowView: View {
     /// 字数统计（T3.1，S-034）：**Character 语义**——按空白分割计数，
     /// 中文/emoji 不按字节切碎（UTF-16 安全）；空串/纯空白 → 0
     static func wordCount(_ text: String) -> Int {
-        text.split(whereSeparator: \.isWhitespace).count
+        // ⚠️ 修复（输入被打断 A2）：惰性单遍计数（原 split 分配数组——每键 O(n) 分配）
+        var count = 0
+        var inWord = false
+        for ch in text {
+            if ch.isWhitespace {
+                inWord = false
+            } else if !inWord {
+                count += 1
+                inWord = true
+            }
+        }
+        return count
     }
 
     /// 行列定位（T3.1，S-034）：前缀换行计数（0-based 行号）+ 行内 UTF-16 偏移（列号）
@@ -119,13 +130,20 @@ struct MainWindowView: View {
     /// emoji/中文前缀不漂移）；NSRange.location 为 UTF-16 位置；
     /// 越界（location < 0 或 > length）→ (0, 0)（cursorLine 越界 nil 同构语义）
     static func lineColumn(text: String, selection: NSRange) -> (line: Int, column: Int) {
+        // ⚠️ 修复（输入被打断 A2）：UTF-16 单遍扫描（原 substring 全前缀复制 + components
+        // 全行数组分配——每键两次 O(n) 分配）；语义不变（0-based 行号 + 行内 UTF-16 偏移）
         let ns = text as NSString
         guard selection.location >= 0, selection.location <= ns.length else { return (0, 0) }
-        let prefix = ns.substring(to: selection.location)
-        let line = prefix.components(separatedBy: "\n").count - 1   // 0-based 行号
-        // 行首 = 最后一个换行之后（无换行 → 0）；列号 = 光标位置 − 行首（行内 UTF-16 偏移）
-        let lastNewline = (prefix as NSString).range(of: "\n", options: .backwards)
-        let lineStart = lastNewline.location == NSNotFound ? 0 : lastNewline.location + 1
+        var line = 0
+        var lineStart = 0
+        var i = 0
+        while i < selection.location {
+            if ns.character(at: i) == 0x0A {   // "\n"
+                line += 1
+                lineStart = i + 1
+            }
+            i += 1
+        }
         return (line, selection.location - lineStart)
     }
 
@@ -136,6 +154,8 @@ struct MainWindowView: View {
     /// line:column (0-based → 1-based display).
     static func statusText(text: String, selection: NSRange) -> String {
         let (line, column) = lineColumn(text: text, selection: selection)
-        return "\(wordCount(text)) 词 · \(text.count) 字符 · 行 \(line + 1), 列 \(column + 1)"
+        // ⚠️ 修复（A2）：字符数用 UTF-16 计数（O(1)）——原 String.count 字素簇迭代
+        // 中文/emoji 下每键 O(n) 最慢；状态栏显示语义可接受
+        return "\(wordCount(text)) 词 · \((text as NSString).length) 字符 · 行 \(line + 1), 列 \(column + 1)"
     }
 }

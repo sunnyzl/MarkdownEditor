@@ -573,24 +573,27 @@ final class MarkdownTextView: NSTextView, EditorEventSource {
     /// 高亮前后字体跳变；覆盖后统一为用户字体（高亮字体统一连带收益）
     private func applySyntaxHighlight(_ result: NSAttributedString?) {
         guard let result, let storage = textStorage else { return }
-        // 修复光标跳末尾 bug：setAttributedString 整体替换会重置光标到末尾 →
-        // 保存/恢复选中位置 + 可见滚动区域
-        let savedSelectedRange = selectedRange()
-        let savedVisibleRect = enclosingScrollView?.documentVisibleRect ?? .zero
+        // ⚠️ 修复（输入被打断 B1）：IME compose 期间不替换——调度时守卫有 450ms 竞态窗口
+        //（英文调度→切中文 compose→到期执行→候选串被清）；被跳过的由上屏后 didChange 重排
+        guard !hasMarkedText() else { return }
+        // ⚠️ 修复（输入被打断 B2）：文本已变 → 丢弃过期结果（竞争守卫）
+        guard (result.string as NSString) == (storage.string as NSString) else { return }
+        // ⚠️ 修复（输入被打断 B2）：属性差异应用替代 setAttributedString 整体替换——
+        // 字符不动（字符串已验证相同）→ 布局不失效、光标不动、marked text 不破坏、
+        // 无需光标/滚动保存恢复；仅编辑属性（前景色 + 统一字体）→ 只有 display 失效
         isProgrammaticUpdate = true
         defer { isProgrammaticUpdate = false }
-        storage.setAttributedString(result)
-        // ⚠️ S-027：用权威 currentFont 覆盖（font getter 在 setAttributedString 后读回
-        // Highlightr Courier → 自写自杀；currentFont 不受 storage 派生影响）
-        storage.addAttribute(.font, value: currentFont,
-                             range: NSRange(location: 0, length: storage.length))
-        // 恢复光标位置（clamp 到新长度防越界）+ 滚动位置
-        let clampedLocation = min(savedSelectedRange.location, max(storage.length, 0))
-        let clampedLength = min(savedSelectedRange.length, max(storage.length - clampedLocation, 0))
-        setSelectedRange(NSRange(location: clampedLocation, length: clampedLength))
-        if savedVisibleRect != .zero {
-            enclosingScrollView?.documentView?.scroll(savedVisibleRect.origin)
+        let fullRange = NSRange(location: 0, length: storage.length)
+        storage.beginEditing()
+        result.enumerateAttribute(.foregroundColor, in: fullRange) { color, range, _ in
+            if let color = color as? NSColor {
+                storage.addAttribute(.foregroundColor, value: color, range: range)
+            }
         }
+        // 字体统一覆盖（Highlightr 输出字体 → 用户字体，权威 currentFont）
+        storage.addAttribute(.font, value: currentFont, range: fullRange)
+        storage.endEditing()
+        // 属性差异应用：字符不动 → 无需光标/滚动恢复（B2 消灭了整体替换的副作用）
     }
 
     deinit {
@@ -644,7 +647,7 @@ final class MarkdownTextView: NSTextView, EditorEventSource {
             scheduleSyntaxHighlight()
         } else {
             syntaxHighlighter.cancelPending()
-            recolorTextStorage()
+            recolorTextStorage(force: true)   // force：必须清除 Highlightr 残留色（A1 守卫不适用于显式清除）
         }
     }
 
@@ -718,8 +721,20 @@ final class MarkdownTextView: NSTextView, EditorEventSource {
     /// 字符级 .backgroundColor 在主题切换后残留 → 黑字压深块/白字压白块不可见；按当前主题背景色整段覆盖
     /// ⚠️ S-027：连带 font 整段重写——recolor 语义升级为 fg+font（高亮残留字体清除的统一入口：
     /// 高亮开关关闭路径 + 输入过渡色路径共用）
-    private func recolorTextStorage() {
+    private func recolorTextStorage(force: Bool = false) {
         guard let storage = textStorage, storage.length > 0 else { return }
+        // ⚠️ 修复（输入被打断 A1）：typingAttributes 健康检查（force 时跳过——显式路径
+        // 如高亮开关关闭必须清除 token 残留色）。round6 真实症状是
+        // typingAttributes 被 IME/撤销/自动替换重置（输入文字颜色错）。健康时跳过全文
+        // 属性编辑（同值 addAttribute 仍触发布局失效，每键全文失效是输入卡顿主因）；
+        // 漂移时执行（防御保留）。另：跳过使高亮 token 色不再被按键擦除（体验更优）。
+        if !force,
+           let fg = typingAttributes[.foregroundColor] as? NSColor,
+           fg == currentThemeForeground,
+           let f = typingAttributes[.font] as? NSFont,
+           f == currentFont {
+            return
+        }
         // ⚠️ 修复（round5 T1.1）：beginEditing/endEditing 包裹（批量编辑合并为一次通知）+
         // 只写前景色+font（字符级背景彻底退出——背景由视图 backgroundColor + drawsBackground 承载）
         storage.beginEditing()

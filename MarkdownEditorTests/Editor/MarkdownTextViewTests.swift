@@ -232,23 +232,21 @@ final class MarkdownTextViewTests: XCTestCase {
 
         // 模拟输入：程序化回填建立着色基线
         tv.setTextProgrammatically("Hello")
-        // 模拟用户环境污染：typingAttributes 派生失败 → 新文字颜色错误（根因场景）
-        tv.textStorage?.addAttribute(.foregroundColor, value: NSColor.red,
-                                     range: NSRange(location: 0, length: (tv.string as NSString).length))
+        // 模拟 round6 真实症状：typingAttributes 被 IME/撤销重置 → 新文字颜色错误
+        tv.typingAttributes = [.foregroundColor: NSColor.red]
 
-        // 输入路径：post didChange 通知（非程序化）→ 闭包强制 recolor
+        // 输入路径：post didChange 通知（非程序化）→ typingAttributes 漂移检测 → recolor
         NotificationCenter.default.post(name: NSText.didChangeNotification, object: tv)
         XCTAssertEqual(tv.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor,
-                       .white, "输入后强制重着色恢复主题色（dark：白字，不依赖 typingAttributes）")
+                       .white, "typingAttributes 漂移时输入路径重着色恢复主题色（dark：白字）")
         XCTAssertEqual(callbacks, ["Hello"], "输入通知回调触发一次；recolor 不产生额外回调（无循环）")
 
-        // 主题切换后输入路径同样生效（light：黑字）
+        // 主题切换后输入路径同样生效（light：黑字）——再次污染 typingAttributes
         NotificationCenter.default.post(name: .editorThemeDidChange, object: ThemeMode.light)
-        tv.textStorage?.addAttribute(.foregroundColor, value: NSColor.red,
-                                     range: NSRange(location: 0, length: (tv.string as NSString).length))
+        tv.typingAttributes = [.foregroundColor: NSColor.red]
         NotificationCenter.default.post(name: NSText.didChangeNotification, object: tv)
         XCTAssertEqual(tv.textStorage?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor,
-                       .black, "输入后强制重着色恢复主题色（light：黑字）")
+                       .black, "typingAttributes 漂移时输入路径重着色恢复主题色（light：黑字）")
         // ⚠️ 修订（盲审 IMPORTANT #3）：phase 2 追加回调计数断言——phase 1 的计数断言
         // 处于抑制标志窗口内（guard 拦截 recolor 触发的 didChange → 症状被遮蔽），无法暴露
         // "recolor 触发 didChange" 类回归；applyTheme 内部 recolor（未置抑制标志）若触发通知
@@ -478,9 +476,8 @@ final class MarkdownTextViewTests: XCTestCase {
         let tv = MarkdownTextView(defaults: suite)
         NotificationCenter.default.post(name: .editorThemeDidChange, object: ThemeMode.dark)
         tv.setTextProgrammatically("# Hello")
-        // 污染 font 后输入路径 recolor → font 恢复
-        tv.textStorage?.addAttribute(.font, value: NSFont.systemFont(ofSize: 99),
-                                     range: NSRange(location: 0, length: (tv.string as NSString).length))
+        // 污染 typingAttributes font（round6 真实症状：IME/撤销重置 → 新输入字体错）→ 输入路径 recolor → font 恢复
+        tv.typingAttributes[.font] = NSFont.systemFont(ofSize: 99)
         NotificationCenter.default.post(name: NSText.didChangeNotification, object: tv)
         let storageFont = tv.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
         XCTAssertEqual(storageFont?.fontName, "Menlo-Regular", "输入路径 recolor 连带恢复 font（fg+font 重写）")
